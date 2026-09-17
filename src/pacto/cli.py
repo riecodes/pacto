@@ -1,4 +1,4 @@
-"""freeze CLI: scan, zip, unzip, plus an interactive picker when run bare."""
+"""pacto CLI: scan, zip, unzip, plus an interactive picker when run bare."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from . import core
-from .core import FreezeError, human
+from .core import PactoError, human
 
 
 def _rows(entries: list[core.Entry]) -> str:
@@ -17,7 +17,7 @@ def _rows(entries: list[core.Entry]) -> str:
     width = max(len(e.name) for e in entries)
     lines = []
     for e in entries:
-        state = "frozen" if e.frozen else f"{human(e.size):>9}  {e.idle_days:5.0f}d"
+        state = "packed" if e.packed else f"{human(e.size):>9}  {e.idle_days:5.0f}d"
         git = f"  [{e.git}]" if e.dirty else ""
         lines.append(f"  {e.name:<{width}}  {state}{git}")
     return "\n".join(lines)
@@ -35,7 +35,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
             {
                 "name": e.name,
                 "path": str(e.path),
-                "frozen": e.frozen,
+                "packed": e.packed,
                 "size": e.size,
                 "files": e.files,
                 "idle_days": round(e.idle_days, 1),
@@ -46,7 +46,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
         ], indent=2))
         return 0
     print(_rows(entries))
-    live = [e for e in entries if not e.frozen]
+    live = [e for e in entries if not e.packed]
     if live:
         print(f"\n{len(live)} active, {human(sum(e.size for e in live))} reclaimable")
     return 0
@@ -58,7 +58,7 @@ def _report(result: core.ZipResult, unzipped: bool = False) -> None:
         return
     note = " (resumed)" if result.resumed else ""
     print(
-        f"froze {result.folder.name}{note}: {result.files} files -> "
+        f"packed {result.folder.name}{note}: {result.files} files -> "
         f"{human(result.zip_size)}, freed {human(result.freed)}"
     )
     for link in result.links_skipped:
@@ -84,7 +84,7 @@ def cmd_zip(args: argparse.Namespace) -> int:
             print(f"warning: {folder.name} git: {state}")
         try:
             _report(core.zip_folder(folder))
-        except (FreezeError, OSError) as exc:
+        except (PactoError, OSError) as exc:
             print(f"error: {folder.name}: {exc}", file=sys.stderr)
             failed = 1
     return failed
@@ -95,7 +95,7 @@ def cmd_unzip(args: argparse.Namespace) -> int:
     for folder in _targets(args):
         try:
             _report(core.unzip_folder(folder, keep_zip=args.keep_zip), unzipped=True)
-        except (FreezeError, OSError) as exc:
+        except (PactoError, OSError) as exc:
             print(f"error: {folder.name}: {exc}", file=sys.stderr)
             failed = 1
     return failed
@@ -111,20 +111,20 @@ def cmd_pick(args: argparse.Namespace) -> int:
     root = core.resolve_root(args.root)
     print(f"scanning {root} ...")
     entries = core.scan(root)
-    active = [e for e in entries if not e.frozen]
-    frozen = [e for e in entries if e.frozen]
-    if not active and not frozen:
+    active = [e for e in entries if not e.packed]
+    packed = [e for e in entries if e.packed]
+    if not active and not packed:
         print("nothing here")
         return 0
 
     action = questionary.select(
         "What do you want to do?",
-        choices=[f"zip ({len(active)} active)", f"unzip ({len(frozen)} frozen)", "quit"],
+        choices=[f"zip ({len(active)} active)", f"unzip ({len(packed)} packed)", "quit"],
     ).ask()
     if not action or action == "quit":
         return 0
 
-    pool = active if action.startswith("zip") else frozen
+    pool = active if action.startswith("zip") else packed
     if not pool:
         print("nothing to do")
         return 0
@@ -149,7 +149,7 @@ def cmd_pick(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="freeze",
+        prog="pacto",
         description="Archive a project folder into a single zip inside it. "
         "Run bare for an interactive picker.",
     )

@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
-DEFAULT_ROOT = Path(os.environ.get("FREEZE_ROOT", r"C:\dev"))
+DEFAULT_ROOT = Path(os.environ.get("PACTO_ROOT", r"C:\dev"))
 PARTIAL_SUFFIX = ".zip.partial"
 DAY = 86400.0
 
@@ -46,8 +46,8 @@ def partial_path(folder: Path) -> Path:
     return folder / f"{folder.name}{PARTIAL_SUFFIX}"
 
 
-def is_frozen(folder: Path) -> bool:
-    """Frozen means the folder holds nothing but its own <name>.zip."""
+def is_packed(folder: Path) -> bool:
+    """packed means the folder holds nothing but its own <name>.zip."""
     try:
         entries = list(folder.iterdir())
     except OSError:
@@ -56,7 +56,7 @@ def is_frozen(folder: Path) -> bool:
 
 
 def self_folder() -> Path:
-    """The checkout/install this module runs from, so freeze never freezes itself."""
+    """The checkout/install this module runs from, so pacto never packs itself."""
     return Path(__file__).resolve().parents[2]
 
 
@@ -140,7 +140,7 @@ def git_state(folder: Path) -> str | None:
 @dataclass
 class Entry:
     path: Path
-    frozen: bool
+    packed: bool
     size: int
     newest: float
     files: int
@@ -156,8 +156,8 @@ class Entry:
 
     @property
     def score(self) -> float:
-        """Big and long untouched ranks first. Frozen folders score nothing."""
-        return 0.0 if self.frozen else self.size * max(self.idle_days, 0.01)
+        """Big and long untouched ranks first. packed folders score nothing."""
+        return 0.0 if self.packed else self.size * max(self.idle_days, 0.01)
 
     @property
     def dirty(self) -> bool:
@@ -180,15 +180,15 @@ def scan(
     ]
 
     def measure(child: Path) -> Entry:
-        frozen = is_frozen(child)
+        packed = is_packed(child)
         st = folder_stats(child)
         return Entry(
             path=child,
-            frozen=frozen,
+            packed=packed,
             size=st.size,
             newest=st.newest,
             files=st.files,
-            git=git_state(child) if git and not frozen else None,
+            git=git_state(child) if git and not packed else None,
         )
 
     # Walking many trees is IO-bound, so threads cut a multi-minute scan down.
@@ -197,7 +197,7 @@ def scan(
 
     out: list[Entry] = []
     for entry in entries:
-        if not entry.frozen and (entry.size < min_size or entry.idle_days < min_idle_days):
+        if not entry.packed and (entry.size < min_size or entry.idle_days < min_idle_days):
             continue
         out.append(entry)
     out.sort(key=lambda e: e.score, reverse=True)
@@ -207,7 +207,7 @@ def scan(
 # --------------------------------------------------------------------------- zip
 
 
-class FreezeError(RuntimeError):
+class PactoError(RuntimeError):
     pass
 
 
@@ -246,7 +246,7 @@ def _write_zip(folder: Path, dest: Path, skip: set[Path]) -> Stats:
                 try:
                     zf.write(p, p.relative_to(folder).as_posix())
                 except OSError as exc:
-                    raise FreezeError(f"cannot read {p}: {exc}") from exc
+                    raise PactoError(f"cannot read {p}: {exc}") from exc
     return st
 
 
@@ -255,16 +255,16 @@ def verify_zip(archive: Path, expect: Stats | None = None) -> None:
     with zipfile.ZipFile(archive) as zf:
         bad = zf.testzip()
         if bad is not None:
-            raise FreezeError(f"corrupt entry in {archive.name}: {bad}")
+            raise PactoError(f"corrupt entry in {archive.name}: {bad}")
         members = [i for i in zf.infolist() if not i.is_dir()]
         if expect is not None:
             if len(members) != expect.files:
-                raise FreezeError(
+                raise PactoError(
                     f"{archive.name} holds {len(members)} files, folder has {expect.files}"
                 )
             total = sum(i.file_size for i in members)
             if total != expect.size:
-                raise FreezeError(
+                raise PactoError(
                     f"{archive.name} unpacks to {total} bytes, folder is {expect.size}"
                 )
 
@@ -285,22 +285,22 @@ def zip_folder(folder: Path) -> ZipResult:
     """Zip the folder into <name>.zip inside it, verify, then delete the rest."""
     folder = Path(folder).resolve()
     if not folder.is_dir():
-        raise FreezeError(f"{folder} is not a folder")
+        raise PactoError(f"{folder} is not a folder")
     if folder == self_folder():
-        raise FreezeError("refusing to freeze freeze's own checkout")
+        raise PactoError("refusing to pacto pacto's own checkout")
     archive = archive_path(folder)
     partial = partial_path(folder)
 
-    if is_frozen(folder):
-        raise FreezeError(f"{folder.name} is already frozen")
+    if is_packed(folder):
+        raise PactoError(f"{folder.name} is already packed")
 
     resumed = False
     if archive.exists():
         # A previous run verified this archive but did not finish deleting.
         try:
             verify_zip(archive)
-        except (FreezeError, zipfile.BadZipFile) as exc:
-            raise FreezeError(
+        except (PactoError, zipfile.BadZipFile) as exc:
+            raise PactoError(
                 f"{archive.name} already exists and did not verify ({exc}). "
                 "Move or delete it, then run again."
             ) from exc
@@ -341,7 +341,7 @@ def zip_folder(folder: Path) -> ZipResult:
 def _safe_target(folder: Path, name: str) -> Path:
     target = (folder / name).resolve()
     if target != folder and folder not in target.parents:
-        raise FreezeError(f"archive entry escapes the folder: {name}")
+        raise PactoError(f"archive entry escapes the folder: {name}")
     return target
 
 
@@ -350,17 +350,17 @@ def unzip_folder(folder: Path, keep_zip: bool = False) -> ZipResult:
     folder = Path(folder).resolve()
     archive = archive_path(folder)
     if not archive.exists():
-        raise FreezeError(f"no {archive.name} in {folder}")
+        raise PactoError(f"no {archive.name} in {folder}")
     others = [c for c in folder.iterdir() if c != archive]
     if others:
-        raise FreezeError(
+        raise PactoError(
             f"{folder.name} holds {len(others)} other item(s); refusing to unzip over them"
         )
 
     with zipfile.ZipFile(archive) as zf:
         bad = zf.testzip()
         if bad is not None:
-            raise FreezeError(f"corrupt entry in {archive.name}: {bad}")
+            raise PactoError(f"corrupt entry in {archive.name}: {bad}")
         for info in zf.infolist():
             _safe_target(folder, info.filename)
         members = [i for i in zf.infolist() if not i.is_dir()]

@@ -1,4 +1,4 @@
-"""MCP server exposing freeze over stdio. Destructive calls need confirm=true."""
+"""MCP server exposing pacto over stdio. Destructive calls need confirm=true."""
 
 from __future__ import annotations
 
@@ -9,14 +9,14 @@ from mcp.server.fastmcp import FastMCP
 
 from . import core
 
-mcp = FastMCP("freeze")
+mcp = FastMCP("pacto")
 
 
 def _entry(e: core.Entry) -> dict[str, Any]:
     return {
         "name": e.name,
         "path": str(e.path),
-        "frozen": e.frozen,
+        "packed": e.packed,
         "size_bytes": e.size,
         "size": core.human(e.size),
         "files": e.files,
@@ -32,7 +32,7 @@ def _folder(name: str, root: str | None) -> Path:
 
 @mcp.tool()
 def scan(root: str | None = None, min_size: str | None = None, idle: str | None = None) -> dict:
-    """List folders in root with size, idle days, git state and frozen status.
+    """List folders in root with size, idle days, git state and packed status.
 
     min_size like "500MB", idle like "60d".
     """
@@ -50,7 +50,7 @@ def scan(root: str | None = None, min_size: str | None = None, idle: str | None 
 @mcp.tool()
 def suggest(root: str | None = None, limit: int = 10) -> dict:
     """Best archive candidates, ranked by size * idle days."""
-    entries = [e for e in core.scan(core.resolve_root(root)) if not e.frozen][:limit]
+    entries = [e for e in core.scan(core.resolve_root(root)) if not e.packed][:limit]
     return {
         "candidates": [_entry(e) for e in entries],
         "reclaimable": core.human(sum(e.size for e in entries)),
@@ -89,7 +89,7 @@ def zip(name: str, root: str | None = None, confirm: bool = False) -> dict:
 
 @mcp.tool()
 def unzip(name: str, root: str | None = None, keep_zip: bool = False) -> dict:
-    """Restore a frozen folder in place and delete its archive."""
+    """Restore a packed folder in place and delete its archive."""
     result = core.unzip_folder(_folder(name, root), keep_zip=keep_zip)
     return {"folder": str(result.folder), "files_restored": result.files}
 

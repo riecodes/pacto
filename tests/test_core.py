@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from freeze import core  # noqa: E402
+from pacto import core  # noqa: E402
 
 
 def make_tree(root: Path) -> dict[str, bytes]:
@@ -47,7 +47,7 @@ def test_round_trip(tmp: Path) -> None:
 
     result = core.zip_folder(folder)
     assert result.files == len(expected), result.files
-    assert core.is_frozen(folder), list(folder.iterdir())
+    assert core.is_packed(folder), list(folder.iterdir())
     assert result.archive == folder / "demo.zip"
     assert result.freed > 0
 
@@ -57,15 +57,15 @@ def test_round_trip(tmp: Path) -> None:
     assert (folder / "empty_dir").is_dir(), "empty dirs must survive the round trip"
 
 
-def test_refuses_double_freeze(tmp: Path) -> None:
+def test_refuses_double_pack(tmp: Path) -> None:
     folder = tmp / "twice"
     folder.mkdir()
     (folder / "a.txt").write_text("x")
     core.zip_folder(folder)
     try:
         core.zip_folder(folder)
-    except core.FreezeError as exc:
-        assert "already frozen" in str(exc)
+    except core.PactoError as exc:
+        assert "already packed" in str(exc)
     else:
         raise AssertionError("second zip should refuse")
 
@@ -80,7 +80,7 @@ def test_resumes_after_interrupted_delete(tmp: Path) -> None:
 
     result = core.zip_folder(folder)
     assert result.resumed is True
-    assert core.is_frozen(folder)
+    assert core.is_packed(folder)
     with zipfile.ZipFile(folder / "halfway.zip") as zf:
         assert zf.namelist() == ["keep.txt"], zf.namelist()
 
@@ -92,7 +92,7 @@ def test_rejects_corrupt_archive(tmp: Path) -> None:
     (folder / "corrupt.zip").write_bytes(b"not a zip at all")
     try:
         core.zip_folder(folder)
-    except core.FreezeError as exc:
+    except core.PactoError as exc:
         assert "did not verify" in str(exc)
     else:
         raise AssertionError("must not delete anything next to an unreadable archive")
@@ -106,7 +106,7 @@ def test_unzip_refuses_zip_slip(tmp: Path) -> None:
         zf.writestr("../escaped.txt", "pwned")
     try:
         core.unzip_folder(folder)
-    except core.FreezeError as exc:
+    except core.PactoError as exc:
         assert "escapes" in str(exc)
     else:
         raise AssertionError("path traversal must be refused")
@@ -135,3 +135,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

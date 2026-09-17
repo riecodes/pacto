@@ -1,5 +1,5 @@
 [project]
-name = "freeze"
+name = "pacto"
 version = "0.1.0"
 description = "Archive an idle project folder into a single zip that lives inside it, with an MCP server."
 readme = "README.md"
@@ -20,15 +20,15 @@ mcp = ["mcp>=1.2"]
 all = ["questionary>=2.0", "mcp>=1.2"]
 
 [project.scripts]
-freeze = "freeze.cli:main"
-freeze-mcp = "freeze.mcp_server:main"
+pacto = "pacto.cli:main"
+pacto-mcp = "pacto.mcp_server:main"
 
 [project.urls]
-Homepage = "https://github.com/riecodes/freeze"
+Homepage = "https://github.com/riecodes/pacto"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/freeze"]
+packages = ["src/pacto"]
