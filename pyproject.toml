@@ -1,0 +1,34 @@
+[project]
+name = "freeze-cli"
+version = "0.1.0"
+description = "Archive an idle project folder into a single zip that lives inside it, with an MCP server."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "riecodes" }]
+keywords = ["archive", "zip", "disk-space", "mcp", "cli"]
+classifiers = [
+  "Environment :: Console",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.11",
+]
+dependencies = []
+
+[project.optional-dependencies]
+pick = ["questionary>=2.0"]
+mcp = ["mcp>=1.2"]
+all = ["questionary>=2.0", "mcp>=1.2"]
+
+[project.scripts]
+freeze = "freeze.cli:main"
+freeze-mcp = "freeze.mcp_server:main"
+
+[project.urls]
+Homepage = "https://github.com/riecodes/freeze"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/freeze"]
