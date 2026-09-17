@@ -18,8 +18,9 @@ archive and finishes the job instead of re-zipping.
 ## Install
 
 ```bash
-pipx install "freeze-cli[all]"            # or: uv tool install "freeze-cli[all]"
-pipx install freeze-cli                   # core only, no picker and no MCP
+pip install "freeze[all]"                 # CLI, interactive picker, MCP server
+pip install freeze                        # core only, no picker and no MCP
+pipx install "freeze[all]"                # or uv tool install, to keep it off your global env
 ```
 
 From a checkout:

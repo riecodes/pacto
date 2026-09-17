@@ -1,5 +1,5 @@
 [project]
-name = "freeze-cli"
+name = "freeze"
 version = "0.1.0"
 description = "Archive an idle project folder into a single zip that lives inside it, with an MCP server."
 readme = "README.md"
