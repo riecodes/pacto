@@ -117,6 +117,8 @@ def git_state(folder: Path) -> str | None:
             out = subprocess.run(
                 ["git", "-C", str(folder), *args],
                 capture_output=True,
+                # the MCP server's stdin is the JSON-RPC pipe; an inherited handle hangs git on Windows
+                stdin=subprocess.DEVNULL,
                 text=True,
                 timeout=20,
             )
