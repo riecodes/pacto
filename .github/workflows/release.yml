@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: python tests/test_core.py
-      - run: pip install "mcp>=1.2"
+      - run: pip install "mcp>=1.2,<2"
       - run: python tests/test_mcp.py
       - run: pipx run build
       - uses: actions/upload-artifact@v4

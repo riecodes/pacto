@@ -16,8 +16,8 @@ dependencies = []
 
 [project.optional-dependencies]
 pick = ["questionary>=2.0"]
-mcp = ["mcp>=1.2"]
-all = ["questionary>=2.0", "mcp>=1.2"]
+mcp = ["mcp>=1.2,<2"]
+all = ["questionary>=2.0", "mcp>=1.2,<2"]
 
 [project.scripts]
 pacto = "pacto.cli:main"
